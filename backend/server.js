@@ -14,12 +14,10 @@ app.use(express.json());
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// Connect MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected!"))
   .catch(err => console.log("MongoDB error:", err));
 
-// User Schema
 const userSchema = new mongoose.Schema({
   name: String,
   email: { type: String, unique: true },
@@ -31,12 +29,19 @@ const userSchema = new mongoose.Schema({
     interests: String,
     skills: String,
   },
+  resume: {
+    objective: String,
+    education: String,
+    skills: [String],
+    interests: [String],
+    projects: [String],
+    template: String,
+  },
   createdAt: { type: Date, default: Date.now }
 });
 
 const User = mongoose.model("User", userSchema);
 
-// Register
 app.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
   try {
@@ -52,7 +57,6 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// Login
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -67,13 +71,23 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Save Profile
 app.post("/save-profile", async (req, res) => {
   const { token, profile } = req.body;
   try {
     const decoded = jwt.verify(token, "careerAI_secret");
     await User.findByIdAndUpdate(decoded.id, { profile });
     res.json({ success: true, message: "Profile saved!" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post("/save-resume", async (req, res) => {
+  const { token, resume } = req.body;
+  try {
+    const decoded = jwt.verify(token, "careerAI_secret");
+    await User.findByIdAndUpdate(decoded.id, { resume });
+    res.json({ success: true, message: "Resume saved!" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -156,6 +170,55 @@ app.post("/college-recommend", async (req, res) => {
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (jsonMatch) res.json({ success: true, data: JSON.parse(jsonMatch[0]) });
     else res.json({ success: false, error: "Could not parse" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get("/dashboard", async (req, res) => {
+  const { token } = req.query;
+  try {
+    const decoded = jwt.verify(token, "careerAI_secret");
+    const user = await User.findById(decoded.id);
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post("/skill-gap", async (req, res) => {
+  const { career, currentSkills, grade } = req.body;
+  const prompt = "List 8 essential skills required to become a " + career + ". For each skill, check if the student already has it based on their current skills: " + currentSkills + ". Return ONLY a JSON array with fields: skill, description, hasSkill (true/false)";
+  try {
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+    });
+    const text = completion.choices[0].message.content;
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (jsonMatch) res.json({ success: true, data: JSON.parse(jsonMatch[0]) });
+    else res.json({ success: false, error: "Could not parse" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ✅ FIX: "Engineering PG" changed to "Engineering" to match frontend filter buttons
+app.get("/exams", (req, res) => {
+  try {
+    const exams = [
+      { name: "JEE Main", date: "January 2026", category: "Engineering", desc: "Joint Entrance Examination for NITs, IIITs" },
+      { name: "JEE Advanced", date: "May 2026", category: "Engineering", desc: "For IIT admissions" },
+      { name: "NEET", date: "May 2026", category: "Medical", desc: "National Eligibility cum Entrance Test for MBBS" },
+      { name: "CUET", date: "May 2026", category: "University", desc: "Common University Entrance Test" },
+      { name: "CLAT", date: "December 2025", category: "Law", desc: "Common Law Admission Test" },
+      { name: "CAT", date: "November 2025", category: "MBA", desc: "Common Admission Test for IIMs" },
+      { name: "GATE", date: "February 2026", category: "Engineering", desc: "Graduate Aptitude Test in Engineering" },
+      { name: "NDA", date: "April 2026", category: "Defence", desc: "National Defence Academy Exam" },
+      { name: "BITSAT", date: "May 2026", category: "Engineering", desc: "BITS Pilani entrance exam" },
+      { name: "VITEEE", date: "April 2026", category: "Engineering", desc: "VIT Engineering Entrance Exam" },
+    ];
+    res.json({ success: true, data: exams });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
