@@ -48,7 +48,7 @@ function App() {
     if (!authForm.email || !authForm.password) { alert("Please fill all fields!"); return; }
     try {
       const endpoint = isLogin ? "/login" : "/register";
-      const res = await axios.post("http://localhost:5000" + endpoint, authForm);
+      const res = await axios.post(" https://career-ai-backend-pied.vercel.app" + endpoint, authForm);
       if (res.data.success) {
         localStorage.setItem("token", res.data.token);
         setUser(res.data.user);
@@ -66,7 +66,7 @@ function App() {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const res = await axios.post("http://localhost:5000/career-recommend", form);
+      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/career-recommend", form);
       const raw = res.data.data;
       const jsonMatch = raw.match(/\[[\s\S]*\]/);
       if (jsonMatch) { setCareers(JSON.parse(jsonMatch[0])); setPage("result"); }
@@ -78,7 +78,7 @@ function App() {
   const handleRoadmap = async (career) => {
     setSelectedCareer(career); setRoadmapLoading(true); setPage("roadmap");
     try {
-      const res = await axios.post("http://localhost:5000/career-roadmap", { career, name: form.name, grade: form.grade });
+      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/career-roadmap", { career, name: form.name, grade: form.grade });
       if (res.data.success) setRoadmap(res.data.data);
     } catch { alert("Error generating roadmap!"); }
     setRoadmapLoading(false);
@@ -91,7 +91,7 @@ function App() {
     setMessages(prev => [...prev, { role: "user", text: userMsg }]);
     setChatLoading(true);
     try {
-      const res = await axios.post("http://localhost:5000/chatbot", { message: userMsg, name: form.name || user?.name, grade: form.grade });
+      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/chatbot", { message: userMsg, name: form.name || user?.name, grade: form.grade });
       setMessages(prev => [...prev, { role: "ai", text: res.data.reply }]);
     } catch { setMessages(prev => [...prev, { role: "ai", text: "Sorry, I couldn't connect. Try again!" }]); }
     setChatLoading(false);
@@ -100,7 +100,7 @@ function App() {
   const handleResume = async () => {
     setResumeLoading(true);
     try {
-      const res = await axios.post("http://localhost:5000/generate-resume", form);
+      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/generate-resume", form);
       if (res.data.success) {
         setResume(res.data.data);
         setEditedResume(res.data.data);
@@ -112,7 +112,7 @@ function App() {
   const handleSaveResume = async () => {
     try {
       const token = localStorage.getItem("token");
-      await axios.post("http://localhost:5000/save-resume", { token, resume: editedResume });
+      await axios.post(" https://career-ai-backend-pied.vercel.app/save-resume", { token, resume: editedResume });
       alert("Resume saved successfully! ✅");
     } catch { alert("Error saving resume!"); }
   };
@@ -120,7 +120,7 @@ function App() {
   const handleCollege = async () => {
     setCollegeLoading(true);
     try {
-      const res = await axios.post("http://localhost:5000/college-recommend", { grade: form.grade, marks: form.marks, interests: form.interests, state });
+      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/college-recommend", { grade: form.grade, marks: form.marks, interests: form.interests, state });
       if (res.data.success) setColleges(res.data.data);
       else alert("Could not get colleges. Try again!");
     } catch { alert("Error getting colleges!"); }
@@ -130,7 +130,7 @@ function App() {
   const handleDashboard = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("http://localhost:5000/dashboard?token=" + token);
+      const res = await axios.get(" https://career-ai-backend-pied.vercel.app/dashboard?token=" + token);
       if (res.data.success) setDashboard(res.data.user);
     } catch { alert("Error loading dashboard!"); }
   };
@@ -139,7 +139,7 @@ function App() {
     if (!targetCareer) { alert("Please enter a target career!"); return; }
     setSkillGapLoading(true);
     try {
-      const res = await axios.post("http://localhost:5000/skill-gap", {
+      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/skill-gap", {
         career: targetCareer,
         currentSkills: form.skills,
         grade: form.grade
@@ -154,7 +154,7 @@ function App() {
   const loadExams = async () => {
     setExamError("");
     try {
-      const res = await axios.get("http://localhost:5000/exams");
+      const res = await axios.get(" https://career-ai-backend-pied.vercel.app/exams");
       if (res.data.success) {
         setExams(res.data.data);
       } else {
