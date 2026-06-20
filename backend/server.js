@@ -14,9 +14,25 @@ app.use(express.json());
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected!"))
-  .catch(err => console.log("MongoDB error:", err));
+let isConnected = false;
+
+const connectDB = async () => {
+  if (isConnected) return;
+
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+
+    isConnected = true;
+    console.log("MongoDB connected!");
+  } catch (err) {
+    console.log("MongoDB error:", err);
+  }
+};
+
+connectDB();
 
 const userSchema = new mongoose.Schema({
   name: String,
