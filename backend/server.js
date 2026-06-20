@@ -50,7 +50,7 @@ app.post("/register", async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const user = new User({ name, email, password: hashed });
     await user.save();
-    const token = jwt.sign({ id: user._id }, "careerAI_secret", { expiresIn: "7d" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
     res.json({ success: true, token, user: { name: user.name, email: user.email } });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -64,7 +64,7 @@ app.post("/login", async (req, res) => {
     if (!user) return res.json({ success: false, error: "User not found!" });
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.json({ success: false, error: "Wrong password!" });
-    const token = jwt.sign({ id: user._id }, "careerAI_secret", { expiresIn: "7d" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
     res.json({ success: true, token, user: { name: user.name, email: user.email } });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -74,7 +74,7 @@ app.post("/login", async (req, res) => {
 app.post("/save-profile", async (req, res) => {
   const { token, profile } = req.body;
   try {
-    const decoded = jwt.verify(token, "careerAI_secret");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     await User.findByIdAndUpdate(decoded.id, { profile });
     res.json({ success: true, message: "Profile saved!" });
   } catch (error) {
@@ -85,7 +85,7 @@ app.post("/save-profile", async (req, res) => {
 app.post("/save-resume", async (req, res) => {
   const { token, resume } = req.body;
   try {
-    const decoded = jwt.verify(token, "careerAI_secret");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     await User.findByIdAndUpdate(decoded.id, { resume });
     res.json({ success: true, message: "Resume saved!" });
   } catch (error) {
@@ -178,8 +178,8 @@ app.post("/college-recommend", async (req, res) => {
 app.get("/dashboard", async (req, res) => {
   const { token } = req.query;
   try {
-    const decoded = jwt.verify(token, "careerAI_secret");
-    const user = await User.findById(decoded.id);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select("-password");
     res.json({ success: true, user });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -203,7 +203,6 @@ app.post("/skill-gap", async (req, res) => {
   }
 });
 
-// ✅ FIX: "Engineering PG" changed to "Engineering" to match frontend filter buttons
 app.get("/exams", (req, res) => {
   try {
     const exams = [
