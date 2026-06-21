@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
+const BACKEND = "https://career-ai-backend-pied.vercel.app";
+
 function App() {
   const [page, setPage] = useState("login");
   const [isLogin, setIsLogin] = useState(true);
@@ -32,33 +34,41 @@ function App() {
   const [savedExams, setSavedExams] = useState([]);
   const [examError, setExamError] = useState("");
 
-  // ✅ FIX: Auto-load exams when page changes to "exams"
   useEffect(() => {
-    if (page === "exams") {
-      loadExams();
-    }
-    if (page === "dashboard") {
-      handleDashboard();
-    }
+    if (page === "exams") loadExams();
+    if (page === "dashboard") handleDashboard();
   }, [page]);
 
   const handleAuthChange = (e) => setAuthForm({ ...authForm, [e.target.name]: e.target.value });
 
   const handleAuth = async () => {
     if (!authForm.email || !authForm.password) { alert("Please fill all fields!"); return; }
-    try {
-      const endpoint = isLogin ? "/login" : "/register";
-      const res = await axios.post(" https://career-ai-backend-pied.vercel.app" + endpoint, authForm);
-      if (res.data.success) {
-        localStorage.setItem("token", res.data.token);
-        setUser(res.data.user);
-        setPage("home");
-      } else {
-        alert(res.data.error);
+    setLoading(true);
+    let attempts = 0;
+    while (attempts < 5) {
+      try {
+        const endpoint = isLogin ? "/login" : "/register";
+        const res = await axios.post(BACKEND + endpoint, authForm, { timeout: 30000 });
+        if (res.data.success) {
+          localStorage.setItem("token", res.data.token);
+          setUser(res.data.user);
+          setPage("home");
+          setLoading(false);
+          return;
+        } else {
+          alert(res.data.error);
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        attempts++;
+        if (attempts < 5) {
+          await new Promise(r => setTimeout(r, 3000));
+        }
       }
-    } catch {
-      alert("Error connecting to server!");
     }
+    alert("Server is starting up, please try again in a moment!");
+    setLoading(false);
   };
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -66,7 +76,7 @@ function App() {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/career-recommend", form);
+      const res = await axios.post(BACKEND + "/career-recommend", form);
       const raw = res.data.data;
       const jsonMatch = raw.match(/\[[\s\S]*\]/);
       if (jsonMatch) { setCareers(JSON.parse(jsonMatch[0])); setPage("result"); }
@@ -78,7 +88,7 @@ function App() {
   const handleRoadmap = async (career) => {
     setSelectedCareer(career); setRoadmapLoading(true); setPage("roadmap");
     try {
-      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/career-roadmap", { career, name: form.name, grade: form.grade });
+      const res = await axios.post(BACKEND + "/career-roadmap", { career, name: form.name, grade: form.grade });
       if (res.data.success) setRoadmap(res.data.data);
     } catch { alert("Error generating roadmap!"); }
     setRoadmapLoading(false);
@@ -91,7 +101,7 @@ function App() {
     setMessages(prev => [...prev, { role: "user", text: userMsg }]);
     setChatLoading(true);
     try {
-      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/chatbot", { message: userMsg, name: form.name || user?.name, grade: form.grade });
+      const res = await axios.post(BACKEND + "/chatbot", { message: userMsg, name: form.name || user?.name, grade: form.grade });
       setMessages(prev => [...prev, { role: "ai", text: res.data.reply }]);
     } catch { setMessages(prev => [...prev, { role: "ai", text: "Sorry, I couldn't connect. Try again!" }]); }
     setChatLoading(false);
@@ -100,11 +110,9 @@ function App() {
   const handleResume = async () => {
     setResumeLoading(true);
     try {
-      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/generate-resume", form);
-      if (res.data.success) {
-        setResume(res.data.data);
-        setEditedResume(res.data.data);
-      } else alert("Could not generate resume. Try again!");
+      const res = await axios.post(BACKEND + "/generate-resume", form);
+      if (res.data.success) { setResume(res.data.data); setEditedResume(res.data.data); }
+      else alert("Could not generate resume. Try again!");
     } catch { alert("Error generating resume!"); }
     setResumeLoading(false);
   };
@@ -112,7 +120,7 @@ function App() {
   const handleSaveResume = async () => {
     try {
       const token = localStorage.getItem("token");
-      await axios.post(" https://career-ai-backend-pied.vercel.app/save-resume", { token, resume: editedResume });
+      await axios.post(BACKEND + "/save-resume", { token, resume: editedResume });
       alert("Resume saved successfully! ✅");
     } catch { alert("Error saving resume!"); }
   };
@@ -120,7 +128,7 @@ function App() {
   const handleCollege = async () => {
     setCollegeLoading(true);
     try {
-      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/college-recommend", { grade: form.grade, marks: form.marks, interests: form.interests, state });
+      const res = await axios.post(BACKEND + "/college-recommend", { grade: form.grade, marks: form.marks, interests: form.interests, state });
       if (res.data.success) setColleges(res.data.data);
       else alert("Could not get colleges. Try again!");
     } catch { alert("Error getting colleges!"); }
@@ -130,7 +138,7 @@ function App() {
   const handleDashboard = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(" https://career-ai-backend-pied.vercel.app/dashboard?token=" + token);
+      const res = await axios.get(BACKEND + "/dashboard?token=" + token);
       if (res.data.success) setDashboard(res.data.user);
     } catch { alert("Error loading dashboard!"); }
   };
@@ -139,49 +147,27 @@ function App() {
     if (!targetCareer) { alert("Please enter a target career!"); return; }
     setSkillGapLoading(true);
     try {
-      const res = await axios.post(" https://career-ai-backend-pied.vercel.app/skill-gap", {
-        career: targetCareer,
-        currentSkills: form.skills,
-        grade: form.grade
-      });
+      const res = await axios.post(BACKEND + "/skill-gap", { career: targetCareer, currentSkills: form.skills, grade: form.grade });
       if (res.data.success) setSkillGap(res.data.data);
       else alert("Could not analyze skills. Try again!");
     } catch { alert("Error analyzing skills!"); }
     setSkillGapLoading(false);
   };
 
-  // ✅ FIX: loadExams now uses inline error state instead of alert()
   const loadExams = async () => {
     setExamError("");
     try {
-      const res = await axios.get(" https://career-ai-backend-pied.vercel.app/exams");
-      if (res.data.success) {
-        setExams(res.data.data);
-      } else {
-        setExamError("Could not load exams. Please try again.");
-      }
+      const res = await axios.get(BACKEND + "/exams");
+      if (res.data.success) setExams(res.data.data);
+      else setExamError("Could not load exams. Please try again.");
     } catch (err) {
-      console.error("Error loading exams:", err);
-      setExamError("Could not connect to server. Make sure the backend is running on port 5000.");
+      setExamError("Could not connect to server.");
     }
   };
 
-  // ✅ FIX: navBtn no longer manually calls loadExams/handleDashboard (useEffect handles it)
   const navBtn = (label, pg) => (
-    <button
-      onClick={() => setPage(pg)}
-      style={{
-        background: page === pg ? "white" : "transparent",
-        color: page === pg ? "#6366f1" : "white",
-        border: "1px solid white",
-        padding: "8px 16px",
-        borderRadius: "20px",
-        cursor: "pointer",
-        fontWeight: "bold"
-      }}
-    >
-      {label}
-    </button>
+    <button onClick={() => setPage(pg)}
+      style={{ background: page === pg ? "white" : "transparent", color: page === pg ? "#6366f1" : "white", border: "1px solid white", padding: "8px 16px", borderRadius: "20px", cursor: "pointer", fontWeight: "bold" }}>{label}</button>
   );
 
   const renderResume = (data, template) => {
@@ -306,9 +292,10 @@ function App() {
             {!isLogin && <input name="name" placeholder="Full Name" value={authForm.name} onChange={handleAuthChange} style={{ display: "block", width: "93%", padding: "14px", margin: "10px 0", borderRadius: "10px", border: "1px solid #ddd", fontSize: "16px" }} />}
             <input name="email" placeholder="Email" value={authForm.email} onChange={handleAuthChange} style={{ display: "block", width: "93%", padding: "14px", margin: "10px 0", borderRadius: "10px", border: "1px solid #ddd", fontSize: "16px" }} />
             <input name="password" type="password" placeholder="Password" value={authForm.password} onChange={handleAuthChange} style={{ display: "block", width: "93%", padding: "14px", margin: "10px 0", borderRadius: "10px", border: "1px solid #ddd", fontSize: "16px" }} />
-            <button onClick={handleAuth} style={{ background: "#6366f1", color: "white", padding: "14px", width: "100%", border: "none", borderRadius: "10px", fontSize: "18px", cursor: "pointer", marginTop: "10px" }}>
-              {isLogin ? "Login 🚀" : "Register 🚀"}
+            <button onClick={handleAuth} disabled={loading} style={{ background: "#6366f1", color: "white", padding: "14px", width: "100%", border: "none", borderRadius: "10px", fontSize: "18px", cursor: "pointer", marginTop: "10px" }}>
+              {loading ? "⏳ Connecting... Please wait..." : isLogin ? "Login 🚀" : "Register 🚀"}
             </button>
+            {loading && <p style={{ textAlign: "center", color: "#888", fontSize: "14px", marginTop: "10px" }}>Server is waking up, this may take 30 seconds...</p>}
           </div>
         </div>
       )}
@@ -458,22 +445,12 @@ function App() {
             <div>
               {renderResume(editMode ? editedResume : resume, selectedTemplate)}
               <div style={{ display: "flex", gap: "12px", marginTop: "20px", flexWrap: "wrap" }}>
-                <button onClick={() => setEditMode(!editMode)}
-                  style={{ background: editMode ? "#10b981" : "#f59e0b", color: "white", padding: "12px 24px", border: "none", borderRadius: "10px", fontSize: "16px", cursor: "pointer" }}>
+                <button onClick={() => setEditMode(!editMode)} style={{ background: editMode ? "#10b981" : "#f59e0b", color: "white", padding: "12px 24px", border: "none", borderRadius: "10px", fontSize: "16px", cursor: "pointer" }}>
                   {editMode ? "✅ Done Editing" : "✏️ Edit Resume"}
                 </button>
-                <button onClick={handleSaveResume}
-                  style={{ background: "#6366f1", color: "white", padding: "12px 24px", border: "none", borderRadius: "10px", fontSize: "16px", cursor: "pointer" }}>
-                  💾 Save Resume
-                </button>
-                <button onClick={() => window.print()}
-                  style={{ background: "#333", color: "white", padding: "12px 24px", border: "none", borderRadius: "10px", fontSize: "16px", cursor: "pointer" }}>
-                  🖨️ Print / PDF
-                </button>
-                <button onClick={() => { setResume(null); setEditMode(false); }}
-                  style={{ background: "#ef4444", color: "white", padding: "12px 24px", border: "none", borderRadius: "10px", fontSize: "16px", cursor: "pointer" }}>
-                  🔄 Regenerate
-                </button>
+                <button onClick={handleSaveResume} style={{ background: "#6366f1", color: "white", padding: "12px 24px", border: "none", borderRadius: "10px", fontSize: "16px", cursor: "pointer" }}>💾 Save Resume</button>
+                <button onClick={() => window.print()} style={{ background: "#333", color: "white", padding: "12px 24px", border: "none", borderRadius: "10px", fontSize: "16px", cursor: "pointer" }}>🖨️ Print / PDF</button>
+                <button onClick={() => { setResume(null); setEditMode(false); }} style={{ background: "#ef4444", color: "white", padding: "12px 24px", border: "none", borderRadius: "10px", fontSize: "16px", cursor: "pointer" }}>🔄 Regenerate</button>
               </div>
             </div>
           )}
@@ -583,19 +560,16 @@ function App() {
         </div>
       )}
 
-      {/* ✅ FIXED Exam Tracker Page */}
+      {/* Exam Tracker Page */}
       {page === "exams" && (
         <div style={{ maxWidth: "800px", margin: "40px auto", padding: "20px" }}>
           <h2 style={{ color: "#6366f1", textAlign: "center", marginBottom: "20px" }}>📅 Exam Tracker</h2>
-
-          {/* ✅ Show inline error instead of alert */}
           {examError && (
             <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "12px", padding: "16px", marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ color: "#ef4444" }}>⚠️ {examError}</span>
               <button onClick={loadExams} style={{ background: "#ef4444", color: "white", border: "none", padding: "8px 16px", borderRadius: "8px", cursor: "pointer" }}>Retry</button>
             </div>
           )}
-
           <div style={{ display: "flex", gap: "10px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" }}>
             {["All", "Engineering", "Medical", "Law", "MBA", "Defence", "University"].map((cat) => (
               <button key={cat} onClick={() => setExamFilter(cat)}
@@ -604,14 +578,9 @@ function App() {
               </button>
             ))}
           </div>
-
-          {/* ✅ Loading state while exams fetch */}
           {exams.length === 0 && !examError && (
-            <div style={{ textAlign: "center", padding: "40px", color: "#6366f1", fontSize: "18px" }}>
-              ⏳ Loading exams...
-            </div>
+            <div style={{ textAlign: "center", padding: "40px", color: "#6366f1", fontSize: "18px" }}>⏳ Loading exams...</div>
           )}
-
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
             {exams.filter(e => examFilter === "All" || e.category === examFilter).map((e, i) => (
               <div key={i} style={{ background: "white", padding: "20px", borderRadius: "16px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
@@ -622,18 +591,14 @@ function App() {
                 <p style={{ color: "#888", margin: "8px 0 4px 0", fontSize: "14px" }}>📅 {e.date}</p>
                 <p style={{ color: "#555", margin: "0 0 12px 0", fontSize: "14px" }}>{e.desc}</p>
                 <button onClick={() => {
-                  if (savedExams.includes(e.name)) {
-                    setSavedExams(savedExams.filter(s => s !== e.name));
-                  } else {
-                    setSavedExams([...savedExams, e.name]);
-                  }
+                  if (savedExams.includes(e.name)) setSavedExams(savedExams.filter(s => s !== e.name));
+                  else setSavedExams([...savedExams, e.name]);
                 }} style={{ background: savedExams.includes(e.name) ? "#10b981" : "#6366f1", color: "white", padding: "8px 16px", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "14px" }}>
                   {savedExams.includes(e.name) ? "✅ Saved" : "🔔 Save Exam"}
                 </button>
               </div>
             ))}
           </div>
-
           {savedExams.length > 0 && (
             <div style={{ background: "white", padding: "20px", borderRadius: "16px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", marginTop: "24px" }}>
               <h3 style={{ color: "#6366f1", margin: "0 0 12px 0" }}>🔔 My Saved Exams</h3>
