@@ -14,25 +14,10 @@ app.use(express.json());
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-let isConnected = false;
-
 const connectDB = async () => {
-  if (isConnected) return;
-
-  try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    });
-
-    isConnected = true;
-    console.log("MongoDB connected!");
-  } catch (err) {
-    console.log("MongoDB error:", err);
-  }
+  if (mongoose.connections[0].readyState) return;
+  await mongoose.connect(process.env.MONGO_URI);
 };
-
-connectDB();
 
 const userSchema = new mongoose.Schema({
   name: String,
@@ -58,7 +43,10 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", userSchema);
 
+app.get("/", (req, res) => res.send("Backend is running!"));
+
 app.post("/register", async (req, res) => {
+  await connectDB();
   const { name, email, password } = req.body;
   try {
     const existing = await User.findOne({ email });
@@ -74,6 +62,7 @@ app.post("/register", async (req, res) => {
 });
 
 app.post("/login", async (req, res) => {
+  await connectDB();
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email });
@@ -88,6 +77,7 @@ app.post("/login", async (req, res) => {
 });
 
 app.post("/save-profile", async (req, res) => {
+  await connectDB();
   const { token, profile } = req.body;
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -99,6 +89,7 @@ app.post("/save-profile", async (req, res) => {
 });
 
 app.post("/save-resume", async (req, res) => {
+  await connectDB();
   const { token, resume } = req.body;
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -108,8 +99,6 @@ app.post("/save-resume", async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
-app.get("/", (req, res) => res.send("Backend is running!"));
 
 app.post("/career-recommend", async (req, res) => {
   const { name, grade, subjects, interests, skills, marks } = req.body;
@@ -192,6 +181,7 @@ app.post("/college-recommend", async (req, res) => {
 });
 
 app.get("/dashboard", async (req, res) => {
+  await connectDB();
   const { token } = req.query;
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
