@@ -5,6 +5,7 @@ Full-stack AI-powered career guidance platform built to help students and job se
 ## 🚀 Live Demo
 - Frontend: [career-ai-frontend](your-frontend-vercel-link)
 - Backend: [career-ai-backend-pied.vercel.app](https://career-ai-backend-pied.vercel.app)
+- Full project link :[https://career-ai-frontend-wheat.vercel.app]
 
 ## 🛠️ Tech Stack
 - Frontend: React.js
